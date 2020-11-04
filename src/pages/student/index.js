@@ -1,5 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useContext, useEffect } from 'react';
+import { SocketContext } from '../../SocketContext';
+import Peer from 'simple-peer';
 
 import './student.css';
 
@@ -12,12 +14,102 @@ const CANVAS_SETTINGS = {
   LINE_CAP: 'round',
 };
 
-const Component = () => {
+const Component = ({ match }) => {
   const canvas = useRef();
+
+  const socket = useContext(SocketContext);
+
+  const socketId = useRef();
+
+  const peerRef = useRef();
+
+  const roomID = match.params.room;
+
+  useEffect(() => {
+    if (socket.current) {
+      socketId.current = socket.current.id;
+
+      socket.current.emit('join room', roomID);
+
+      socket.current.on('all users', (users) => {
+        peerRef.current = createPeer(users[0], socket.current.id);
+      });
+
+      socket.current.on('user joined', (payload) => {
+        peerRef.current = addPeer(payload.signal, payload.callerID);
+      });
+
+      socket.current.on('receiving returned signal', (payload) => {
+        peerRef.current.signal(payload.signal);
+      });
+    }
+
+    return () => {
+      if (socket.current && socket.current.disconnect) {
+        socket.current.disconnect();
+      }
+
+      if (peerRef && peerRef.current && peerRef.current.destroy) {
+        peerRef.current.destroy();
+      }
+    };
+  }, [socket.current, roomID]);
 
   const [isActive, setIsActive] = useState(false);
 
   const [state, setState] = useState([]);
+
+  function createPeer(userToSignal, callerID) {
+    const peer = new Peer({
+      initiator: true,
+      trickle: false,
+    });
+
+    peer.on('signal', (signal) => {
+      socket.current.emit('sending signal', {
+        userToSignal,
+        callerID,
+        signal,
+      });
+    });
+
+    peer.on('data', handleReceivePayload);
+
+    return peer;
+  }
+
+  function addPeer(incomingSignal, callerID) {
+    const peer = new Peer({
+      initiator: false,
+      trickle: false,
+    });
+
+    peer.on('signal', (signal) => {
+      socket.current.emit('returning signal', { signal, callerID });
+    });
+
+    peer.on('data', handleReceivePayload);
+
+    peer.signal(incomingSignal);
+
+    return peer;
+  }
+
+  function handleReceivePayload(data) {
+    const nextState = JSON.parse(new TextDecoder('utf-8').decode(data));
+
+    setState(nextState);
+
+    if (nextState.length === 0) return clearCanvas();
+
+    drawCanvas(nextState);
+  }
+
+  const handleSendPayload = (state) => {
+    if (peerRef.current && socket.current) {
+      peerRef.current.write(JSON.stringify(state));
+    }
+  };
 
   const coordinates = (e) => {
     return {
@@ -26,11 +118,11 @@ const Component = () => {
     };
   };
 
-  const drawCanvas = () => {
+  const drawCanvas = (nextState) => {
     const context = canvas.current.getContext('2d');
 
-    for (var i = 0; i < state.length; i++) {
-      const item = state[i];
+    for (var i = 0; i < nextState.length; i++) {
+      const item = nextState[i];
       if (item) {
         context.beginPath();
 
@@ -58,6 +150,7 @@ const Component = () => {
 
   const clearCanvas = () => {
     const context = canvas.current.getContext('2d');
+
     context.clearRect(
       0,
       0,
@@ -67,8 +160,11 @@ const Component = () => {
   };
 
   const handleReset = () => {
-    clearCanvas();
     setState([]);
+
+    clearCanvas();
+
+    handleSendPayload([]);
   };
 
   const handleMouseDown = () => {
@@ -78,8 +174,8 @@ const Component = () => {
 
   const handleMouseUp = (e) => {
     if (isActive) {
-      updateCanvasState(e);
-      drawCanvas();
+      const nextState = updateCanvasState(e);
+      drawCanvas(nextState);
     }
     setIsActive(false);
   };
@@ -96,54 +192,62 @@ const Component = () => {
     newState[index] = last;
 
     setState(newState);
+
+    handleSendPayload(newState);
+
+    return newState;
   };
 
   const handleMouseMove = (e) => {
     if (isActive) {
-      updateCanvasState(e);
-      drawCanvas();
+      const nextState = updateCanvasState(e);
+      drawCanvas(nextState);
     }
   };
 
   const handleMouseLeave = (e) => {
     if (isActive) {
-      updateCanvasState(e);
-      drawCanvas();
+      const nextState = updateCanvasState(e);
+      drawCanvas(nextState);
     }
     setIsActive(false);
+  };
+
+  const renderCanvas = () => {
+    return (
+      <div
+        className="student-canvas__holder"
+        style={{
+          width: CANVAS_SETTINGS.WIDTH,
+          height: CANVAS_SETTINGS.HEIGHT,
+        }}
+      >
+        <canvas
+          ref={canvas}
+          height={CANVAS_SETTINGS.HEIGHT}
+          width={CANVAS_SETTINGS.WIDTH}
+          onMouseDown={handleMouseDown}
+          onMouseLeave={handleMouseLeave}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+        ></canvas>
+      </div>
+    );
   };
 
   return (
     <div className="student-canvas">
       <div className="student-canvas__header flex">
-        <div className="flex-1">Student Canvas</div>
+        <div className="flex-1">Student</div>
         <button
-          class="bg-blue-500 hover:bg-blue-700 text-white font-bold px-2"
+          className="bg-red-500 hover:bg-red-700 text-white font-bold px-2"
           onClick={handleReset}
         >
           &times;
         </button>
       </div>
       <div className="student-canvas__wrapper">
-        <div className="student-canvas__content">
-          <div
-            className="student-canvas__holder"
-            style={{
-              width: CANVAS_SETTINGS.WIDTH,
-              height: CANVAS_SETTINGS.HEIGHT,
-            }}
-          >
-            <canvas
-              ref={canvas}
-              height={CANVAS_SETTINGS.HEIGHT}
-              width={CANVAS_SETTINGS.WIDTH}
-              onMouseDown={handleMouseDown}
-              onMouseLeave={handleMouseLeave}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-            ></canvas>
-          </div>
-        </div>
+        <div className="student-canvas__content">{renderCanvas()}</div>
       </div>
     </div>
   );
