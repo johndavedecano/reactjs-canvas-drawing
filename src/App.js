@@ -1,4 +1,4 @@
-import { Switch, Route, Router as BrowserRouter } from 'react-router-dom';
+import { Switch, Route, Router as BrowserRouter } from 'wouter';
 
 import { createBrowserHistory } from 'history';
 
@@ -14,12 +14,10 @@ function App() {
   return (
     <BrowserRouter history={createBrowserHistory()}>
       <SocketProvider>
-        <div className="App">
-          <Switch>
-            <Route component={Instructor} path="/" exact />
-            <Route component={Student} path="/student/:room" exact />
-          </Switch>
-        </div>
+        <Switch>
+          <Route component={Instructor} path="/" />
+          <Route component={Student} path="/student/:room" exact />
+        </Switch>
       </SocketProvider>
     </BrowserRouter>
   );

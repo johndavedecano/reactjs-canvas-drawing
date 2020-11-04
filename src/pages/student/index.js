@@ -2,6 +2,7 @@
 import React, { useRef, useState, useContext, useEffect } from 'react';
 import { SocketContext } from '../../SocketContext';
 import Peer from 'simple-peer';
+import { Link } from 'wouter';
 
 import './student.css';
 
@@ -14,7 +15,7 @@ const CANVAS_SETTINGS = {
   LINE_CAP: 'round',
 };
 
-const Component = ({ match }) => {
+const Component = ({ params }) => {
   const canvas = useRef();
 
   const socket = useContext(SocketContext);
@@ -23,7 +24,7 @@ const Component = ({ match }) => {
 
   const peerRef = useRef();
 
-  const roomID = match.params.room;
+  const roomID = params.room;
 
   useEffect(() => {
     if (socket.current) {
@@ -237,14 +238,20 @@ const Component = ({ match }) => {
 
   return (
     <div className="student-canvas">
-      <div className="student-canvas__header flex">
+      <div className="student-canvas__header flex bg-teal-500">
         <div className="flex-1">Student</div>
         <button
-          className="bg-red-500 hover:bg-red-700 text-white font-bold px-2"
+          className="bg-red-500 hover:bg-red-700 text-white font-bold px-2 mr-2"
           onClick={handleReset}
         >
-          &times;
+          Clear
         </button>
+        <Link
+          className="bg-blue-500 hover:bg-blue-700 text-white font-bold px-2"
+          to="/"
+        >
+          Back
+        </Link>
       </div>
       <div className="student-canvas__wrapper">
         <div className="student-canvas__content">{renderCanvas()}</div>

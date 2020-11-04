@@ -16,7 +16,8 @@
     "socket.io": "^2.3.0",
     "socket.io-client": "^2.3.1",
     "tailwindcss": "^1.9.6",
-    "web-vitals": "^0.2.4"
+    "web-vitals": "^0.2.4",
+    "wouter": "^2.5.3"
   },
   "scripts": {
     "build:tailwind": "tailwindcss build src/tailwind.css -o src/tailwind.output.css",
