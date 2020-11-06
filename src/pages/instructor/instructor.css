@@ -1,0 +1,48 @@
+.instructor {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+  background-color: #fafcff;
+}
+
+.instructor .right {
+  height: 100vh;
+}
+
+.toolbar {
+  height: 80px;
+}
+
+.students-lists::-webkit-scrollbar {
+  width: 2px;
+  height: 2px;
+}
+.students-lists::-webkit-scrollbar-button {
+  width: 0px;
+  height: 0px;
+}
+.students-lists::-webkit-scrollbar-thumb {
+  background: #e1e1e1;
+  border: 0px none #ffffff;
+  border-radius: 50px;
+}
+.students-lists::-webkit-scrollbar-thumb:hover {
+  background: #ffffff;
+}
+.students-lists::-webkit-scrollbar-thumb:active {
+  background: #000000;
+}
+.students-lists::-webkit-scrollbar-track {
+  background: #666666;
+  border: 0px none #ffffff;
+  border-radius: 50px;
+}
+.students-lists::-webkit-scrollbar-track:hover {
+  background: #666666;
+}
+.students-lists::-webkit-scrollbar-track:active {
+  background: #333333;
+}
+.students-lists::-webkit-scrollbar-corner {
+  background: transparent;
+}

@@ -1,4 +1,4 @@
-import { Switch, Route, Router as BrowserRouter } from 'wouter';
+import { Switch, Route, Router as BrowserRouter, Redirect } from 'wouter';
 
 import { createBrowserHistory } from 'history';
 
@@ -15,7 +15,9 @@ function App() {
     <BrowserRouter history={createBrowserHistory()}>
       <SocketProvider>
         <Switch>
-          <Route component={Instructor} path="/" />
+          <Redirect path="/" to="/instructor" />
+          <Route component={Instructor} path="/instructor" />
+          <Route component={Instructor} path="/instructor/:room" />
           <Route component={Student} path="/student/:room" exact />
         </Switch>
       </SocketProvider>

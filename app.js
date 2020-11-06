@@ -10,42 +10,60 @@ const users = {};
 const socketToRoom = {};
 
 io.on('connection', (socket) => {
-  socket.on('join room', (roomID) => {
-    if (users[roomID]) {
-      users[roomID].push(socket.id);
-    } else {
-      users[roomID] = [socket.id];
+  socket.on('join', (roomId) => {
+    const userId = socket.id;
+
+    if (!users[roomId]) {
+      users[roomId] = [];
     }
 
-    socketToRoom[socket.id] = roomID;
+    users[roomId].push(userId);
 
-    const usersInThisRoom = users[roomID].filter((id) => id !== socket.id);
+    console.log(`User ${userId} joined at ${roomId}`);
 
-    socket.emit('all users', usersInThisRoom);
-  });
+    socketToRoom[userId] = roomId;
 
-  socket.on('sending signal', (payload) => {
-    io.to(payload.userToSignal).emit('user joined', {
-      signal: payload.signal,
-      callerID: payload.callerID,
-    });
-  });
+    const others = users[roomId].filter((id) => id !== userId);
 
-  socket.on('returning signal', (payload) => {
-    io.to(payload.callerID).emit('receiving returned signal', {
-      signal: payload.signal,
-      id: socket.id,
-    });
+    socket.join(roomId);
+
+    console.log('users', others)
+
+    socket.emit('users', others);
+
+    socket.to(roomId).broadcast.emit('joined', userId);
   });
 
   socket.on('disconnect', () => {
-    const roomID = socketToRoom[socket.id];
-    let room = users[roomID];
-    if (room) {
-      room = room.filter((id) => id !== socket.id);
-      users[roomID] = room;
-      socket.broadcast.emit('user left', socket.id);
+
+    console.log(socket.id, 'has disconnected')
+
+    const roomId = socketToRoom[socket.id];
+
+    if (users[roomId]) {
+      users[roomId] = users[roomId].filter(id => socket.id !== id);
     }
+
+    if (socketToRoom[socket.id]) {
+      delete socketToRoom[socket.id];
+    }
+
+    socket.to(roomId).broadcast.emit('left', socket.id);
+  });
+
+  socket.on('leave', (roomId) => {
+
+    console.log(socket.id, 'has left')
+
+    if (!users[roomId]) {
+      users[roomId] = [];
+    }
+
+    users[roomId] = users[roomId].filter(id => socket.id !== id);
+
+    delete socketToRoom[socket.id];
+
+    socket.to(roomId).broadcast.emit('left', socket.id);
   });
 });
 

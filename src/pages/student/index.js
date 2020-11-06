@@ -1,7 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useRef, useState, useContext, useEffect } from 'react';
 import { SocketContext } from '../../SocketContext';
-import Peer from 'simple-peer';
 import { Link } from 'wouter';
 
 import './student.css';
@@ -18,98 +17,79 @@ const CANVAS_SETTINGS = {
 const Component = ({ params }) => {
   const canvas = useRef();
 
-  const socket = useContext(SocketContext);
-
-  const socketId = useRef();
-
-  const peerRef = useRef();
-
-  const roomID = params.room;
-
-  useEffect(() => {
-    if (socket.current) {
-      socketId.current = socket.current.id;
-
-      socket.current.emit('join room', roomID);
-
-      socket.current.on('all users', (users) => {
-        peerRef.current = createPeer(users[0], socket.current.id);
-      });
-
-      socket.current.on('user joined', (payload) => {
-        peerRef.current = addPeer(payload.signal, payload.callerID);
-      });
-
-      socket.current.on('receiving returned signal', (payload) => {
-        peerRef.current.signal(payload.signal);
-      });
-    }
-
-    return () => {
-      if (socket.current && socket.current.disconnect) {
-        socket.current.disconnect();
-      }
-
-      if (peerRef && peerRef.current && peerRef.current.destroy) {
-        peerRef.current.destroy();
-      }
-    };
-  }, [socket.current, roomID]);
+  const socketRef = useContext(SocketContext);
 
   const [isActive, setIsActive] = useState(false);
 
   const [state, setState] = useState([]);
 
-  function createPeer(userToSignal, callerID) {
-    const peer = new Peer({
-      initiator: true,
-      trickle: false,
+  const host = useRef();
+
+  const guest = useRef({});
+
+  useEffect(() => {
+    const socketId = socketRef.current.id
+
+    console.log('socketId', socketId)
+
+    host.current = new window.Peer(socketId)
+
+    socketRef.current.emit('join', params.room);
+
+    socketRef.current.on('users', (users) => {
+      console.log('users', users)
+      for (var i = 0; i < users.length; i++) {
+        const userId = users[i]
+        if (!guest.current[userId]) {
+          guest.current[userId] = host.current.connect(userId);
+
+          host.current.on('connection', (conn) => {
+            conn.on('data', handleReceivePayload)
+          })
+        }
+      }
     });
 
-    peer.on('signal', (signal) => {
-      socket.current.emit('sending signal', {
-        userToSignal,
-        callerID,
-        signal,
-      });
+    socketRef.current.on('joined', (userId) => {
+      console.log('joined', [userId])
+      if (!guest.current[userId]) {
+        guest.current[userId] = host.current.connect(userId);
+
+        host.current.on('connection', (conn) => {
+          conn.on('data', handleReceivePayload)
+        })
+      }
     });
 
-    peer.on('data', handleReceivePayload);
-
-    return peer;
-  }
-
-  function addPeer(incomingSignal, callerID) {
-    const peer = new Peer({
-      initiator: false,
-      trickle: false,
+    socketRef.current.on('left', (userId) => {
+      console.log('left', [userId])
+      if (guest.current[userId]) {
+        guest.current[userId].close();
+      }
     });
 
-    peer.on('signal', (signal) => {
-      socket.current.emit('returning signal', { signal, callerID });
-    });
-
-    peer.on('data', handleReceivePayload);
-
-    peer.signal(incomingSignal);
-
-    return peer;
-  }
-
-  function handleReceivePayload(data) {
-    const nextState = JSON.parse(new TextDecoder('utf-8').decode(data));
-
-    setState(nextState);
-
-    if (nextState.length === 0) return clearCanvas();
-
-    drawCanvas(nextState);
-  }
-
-  const handleSendPayload = (state) => {
-    if (peerRef.current && socket.current) {
-      peerRef.current.write(JSON.stringify(state));
+    return () => {
+      socketRef.current.emit('leave', params.room);
     }
+
+  }, [params.room]);
+
+  const handleSendPayload = (data) => {
+    if (guest.current) {
+      const users = Object.keys(guest.current)
+      for (var i = 0; i < users.length; i++) {
+        const userId = users[i]
+        guest.current[userId].send(data)
+      }
+    }
+  };
+
+  const handleReceivePayload = (data) => {
+    setState(data);
+
+    if (data.length === 0) return clearCanvas();
+
+    drawCanvas(data);
   };
 
   const coordinates = (e) => {
